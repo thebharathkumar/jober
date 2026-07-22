@@ -25,7 +25,7 @@ embeddings = ["sentence-transformers>=2.2", "numpy>=1.24"]
 # Real LLM answerer + LLM-as-judge. Without it we fall back to the offline
 # extractive provider and the lexical judge, so evals still run.
 llm = ["anthropic>=0.39"]
-dev = ["pytest>=7.4", "ruff>=0.5", "mypy>=1.8"]
+dev = ["pytest>=7.4", "pytest-cov>=4.1", "ruff>=0.5", "mypy>=1.8"]
 
 [project.scripts]
 bus-factor = "bus_factor.cli:main"
@@ -37,7 +37,7 @@ Homepage = "https://github.com/thebharathkumar/jober"
 where = ["src"]
 
 [tool.setuptools.package-data]
-bus_factor = ["_data/*.json"]
+bus_factor = ["_data/*.json", "py.typed"]
 
 [tool.ruff]
 line-length = 100
@@ -50,6 +50,23 @@ ignore = ["E501"]  # long lines are handled by the formatter, not the linter
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+
+[tool.coverage.run]
+source = ["bus_factor"]
+branch = true
+
+[tool.coverage.report]
+# Enforced in CI. The uncovered remainder is network I/O, the API-key-gated LLM
+# paths, and the optional embeddings dependency — all exercised in integration,
+# not unit tests.
+fail_under = 80
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
 
 [tool.mypy]
 python_version = "3.11"

@@ -10,6 +10,8 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
+from bus_factor.errors import ConfigError
+
 
 def _int(name: str, default: int) -> int:
     try:
@@ -53,6 +55,31 @@ class Settings:
 
     # --- github ingest ---
     github_token: str = ""
+
+    def __post_init__(self) -> None:
+        """Fail fast on nonsensical configuration rather than deep in a run."""
+        if self.top_k < 1:
+            raise ConfigError(f"top_k must be >= 1, got {self.top_k}")
+        if self.rrf_k < 1:
+            raise ConfigError(f"rrf_k must be >= 1, got {self.rrf_k}")
+        if self.max_tokens < 1:
+            raise ConfigError(f"max_tokens must be >= 1, got {self.max_tokens}")
+        if not 0.0 < self.holdout_fraction < 1.0:
+            raise ConfigError(
+                f"holdout_fraction must be in (0, 1), got {self.holdout_fraction}"
+            )
+        if not 0.0 <= self.judge_f1_threshold <= 1.0:
+            raise ConfigError(
+                f"judge_f1_threshold must be in [0, 1], got {self.judge_f1_threshold}"
+            )
+        if not 0.0 <= self.low_confidence_threshold <= 1.0:
+            raise ConfigError(
+                f"low_confidence_threshold must be in [0, 1], got {self.low_confidence_threshold}"
+            )
+        if self.staleness_warn_days < 0:
+            raise ConfigError(
+                f"staleness_warn_days must be >= 0, got {self.staleness_warn_days}"
+            )
 
     @classmethod
     def from_env(cls) -> Settings:

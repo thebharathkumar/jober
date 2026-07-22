@@ -21,6 +21,17 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
+from bus_factor.errors import DataError
+
+
+def _require(d: Any, keys: tuple[str, ...], ctx: str) -> None:
+    """Validate that ``d`` is a mapping containing every required key."""
+    if not isinstance(d, dict):
+        raise DataError(f"{ctx}: expected an object, got {type(d).__name__}")
+    missing = [k for k in keys if k not in d]
+    if missing:
+        raise DataError(f"{ctx}: missing required field(s): {', '.join(missing)}")
+
 
 def parse_iso(value: str | None) -> datetime | None:
     """Parse an ISO-8601 timestamp, tolerating a trailing ``Z``."""
@@ -49,6 +60,7 @@ class Source:
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> Source:
+        _require(d, ("id", "kind", "title"), "Source")
         return cls(**{k: d.get(k, "") for k in cls.__dataclass_fields__})
 
 
@@ -79,6 +91,7 @@ class Document:
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> Document:
+        _require(d, ("id", "text", "source"), "Document")
         return cls(
             id=d["id"],
             text=d["text"],
@@ -112,6 +125,7 @@ class QAPair:
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> QAPair:
+        _require(d, ("id", "question", "reference_answer", "source"), "QAPair")
         return cls(
             id=d["id"],
             question=d["question"],

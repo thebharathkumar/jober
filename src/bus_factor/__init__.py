@@ -12,3 +12,8 @@ accelerators are imported lazily so the core always runs on the stdlib.
 """
 
 __version__ = "0.1.0"
+
+from bus_factor.app import BusFactor
+from bus_factor.config import Settings
+
+__all__ = ["BusFactor", "Settings", "__version__"]

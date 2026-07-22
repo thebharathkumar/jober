@@ -111,6 +111,35 @@ export ANTHROPIC_API_KEY=...
 python -m bus_factor.cli demo
 ```
 
+### Persist to a knowledge base
+
+Ingesting is expensive (network, rate limits); you should do it once. Pass
+`--db` to persist into a SQLite knowledge base, then query it without
+re-scraping. Ingest is incremental — documents upsert by id, so re-running
+updates only what changed.
+
+```bash
+python -m bus_factor.cli ingest simonw/datasette --out data --db data/knowledge.db
+python -m bus_factor.cli stats --db data/knowledge.db
+python -m bus_factor.cli ask "How do I enable full-text search?" --db data/knowledge.db
+python -m bus_factor.cli eval --db data/knowledge.db --leave-one-out
+```
+
+### Use as a library
+
+Everything the CLI does is available programmatically through one object:
+
+```python
+from bus_factor import BusFactor
+
+bf = BusFactor.from_sqlite("data/knowledge.db")
+answer = bf.ask("How do I rotate the signing key?")
+print(answer.text, answer.confidence, answer.citations)
+
+report = bf.evaluate(qa_pairs, leave_one_out=True)
+print(report.summary["accuracy"], report.summary["ece"])
+```
+
 ---
 
 ## Architecture
@@ -166,19 +195,51 @@ provocative, but the system is built to be defensible, not creepy. See
 
 ---
 
+## Engineering / production-readiness
+
+This is a portfolio project, so it is precise about what "production-ready"
+means here. What is built to the bar of a serious internal service:
+
+- **Typed throughout, `mypy` clean**, ships a `py.typed` marker.
+- **56 tests, ~82% coverage**, enforced in CI (a threshold gate, not a vanity
+  badge). The uncovered remainder is network I/O and the API-key-gated LLM
+  paths, exercised in integration rather than unit tests.
+- **Typed error hierarchy** (`BusFactorError` and friends) — the CLI reports
+  failures with a message and an exit code, never a stack trace.
+- **Resilient ingestion**: the GitHub client retries with exponential backoff,
+  detects and surfaces rate-limit exhaustion (honoring `Retry-After` and
+  `X-RateLimit-Reset`), validates repo slugs, and maps 404 → not-found.
+- **Input validation**: malformed JSONL rows are validated and skipped with a
+  logged warning, not crashed on; configuration is validated at construction.
+- **Structured logging** that stays quiet when imported as a library.
+- **Durable persistence**: a single-file SQLite knowledge base with incremental
+  (upsert-by-id) ingest, so you scrape once and query forever.
+- **Clean library API** (`BusFactor`) in addition to the CLI.
+- **CI** runs lint, type-check, coverage, and an end-to-end demo smoke test on
+  Python 3.11 and 3.12.
+
+What it is **not** yet — and I will not claim otherwise: no authN/Z,
+multi-tenancy, audit logging, or horizontal scaling. Those are real production
+concerns beyond a single-author portfolio artifact. And the confidence score is
+still uncalibrated under distribution shift — the top item on the roadmap.
+
 ## Project layout
 
 ```
 src/bus_factor/
-  ingest/    github_issues.py   # closed issues -> knowledge + eval set (pure transforms + I/O)
-  memory/    bm25.py store.py    # dependency-free BM25 + hybrid RRF store
-             embeddings.py       # optional dense retriever (degrades if absent)
-  agent/     answerer.py         # retrieve -> grounded answer with provenance
-             provider.py         # Anthropic + offline extractive fallback
-  eval/      harness.py          # closed-book + leave-one-out, full report
+  app.py       BusFactor         # the public library facade (store + answerer + eval)
+  cli.py       config.py         # argparse CLI (+ --version/--verbose); validated settings
+  errors.py    logging_config.py # typed exception hierarchy; structured logging
+  ingest/    github_issues.py    # closed issues -> knowledge + eval set;
+                                 #   pure transforms split from a retrying, rate-limit-aware client
+  memory/    bm25.py store.py     # dependency-free BM25 + hybrid RRF store
+             embeddings.py        # optional dense retriever (degrades if absent)
+             persistence.py       # SQLite knowledge base, incremental upsert
+  agent/     answerer.py          # retrieve -> grounded answer with provenance
+             provider.py          # Anthropic + offline extractive fallback
+  eval/      harness.py           # closed-book + leave-one-out, full report
              metrics.py judge.py dataset.py
-  cli.py     config.py           # argparse CLI, env-driven settings
-tests/                           # 20 tests, no network required
+tests/                            # 56 tests, no network required
 ```
 
 ## Status & roadmap

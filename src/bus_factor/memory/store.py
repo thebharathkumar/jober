@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+from typing import Any
 
 from bus_factor.memory.bm25 import BM25
 from bus_factor.models import Document
@@ -31,7 +32,7 @@ class MemoryStore:
         self.rrf_k = rrf_k
         self.documents: list[Document] = []
         self._bm25: BM25 | None = None
-        self._dense = None
+        self._dense: Any = None  # DenseRetriever | None; Any to keep it optional
         self._use_dense = use_dense
 
     def add(self, docs: list[Document]) -> None:
@@ -63,7 +64,9 @@ class MemoryStore:
         pool = max(k * 4, 20)
         lexical = self._bm25.top_k(query, pool)
         lexical_by_idx = dict(lexical)
-        dense = self._dense.top_k(query, pool) if self._dense is not None else []
+        dense: list[tuple[int, float]] = (
+            self._dense.top_k(query, pool) if self._dense is not None else []
+        )
 
         fused = self._rrf([lexical, dense])
         results: list[RetrievalResult] = []

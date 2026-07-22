@@ -25,8 +25,11 @@ jobs:
       - name: Lint
         run: python -m ruff check src tests
 
-      - name: Test
-        run: python -m pytest
+      - name: Type check
+        run: MYPYPATH=src python -m mypy src/bus_factor
+
+      - name: Test with coverage
+        run: python -m pytest --cov=bus_factor --cov-report=term-missing
 
       # The demo is the end-to-end smoke test: it must run offline and produce
       # a report on every commit. If retrieval or the harness breaks, this fails.

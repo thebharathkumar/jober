@@ -126,6 +126,7 @@ def run_eval(
 
     for qa in holdout:
         active = answerer_factory(qa) if answerer_factory else answerer
+        assert active is not None  # guaranteed by the guard above
         provider_name = active.provider.name
         ans = active.answer(qa.question, as_of=as_of)
         verdict = judge.judge(qa.question, qa.reference_answer, ans.text)

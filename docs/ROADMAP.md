@@ -19,6 +19,15 @@ anything that answers. Define success before optimizing for it.
 - [x] Hybrid store with RRF fusion; optional dense retriever
 - [x] Every retrieval result carries its `Source` (url, author, date)
 - [x] Grounded answerer: citations + confidence + staleness on every answer
+- [x] Durable SQLite knowledge base with incremental (upsert-by-id) ingest
+
+## Engineering hardening ✅
+
+- [x] Typed error hierarchy + clean CLI error handling
+- [x] `mypy`-clean, `py.typed`, coverage-gated CI (3.11 / 3.12)
+- [x] Structured, library-safe logging
+- [x] Config + input validation; resilient, rate-limit-aware GitHub client
+- [x] `BusFactor` library facade
 
 ## Phase 2 — Evaluation ✅ (spine) / 🚧 (calibration)
 

@@ -88,6 +88,44 @@ Hybrid retrieval, provenance-carrying.
   two modes: **closed-book** (fixed store) and **leave-one-out** (each
   question's own answer withheld — the real generalization test).
 
+## Persistence (`memory/persistence.py`)
+
+`SqliteKnowledgeBase` is the durable source of truth, distinct from the
+in-memory retrieval index. You ingest expensively once (network, rate limits),
+persist here, and rebuild the cheap BM25 index from SQLite on start. Ingest is
+**incremental**: documents upsert by primary key, so re-running against a repo
+updates only what changed. SQLite is deliberate — zero-ops, single-file, ACID,
+already in the stdlib, and swapping in Postgres later is confined to this one
+module.
+
+## The facade (`app.py`)
+
+`BusFactor` is the one public object. It composes the store, answerer, and eval
+into `ask()` / `evaluate()` and offers `from_documents` / `from_jsonl` /
+`from_sqlite` constructors so the source of truth is a caller choice. The CLI is
+a thin shell over it, and it dogfoods the same API a library user would.
+
+## Cross-cutting concerns
+
+- **`config.py`** — a single `Settings` object, env-driven, **validated at
+  construction** (`__post_init__` raises `ConfigError` on out-of-range values).
+  One printable object describes the whole system's behaviour.
+- **`errors.py`** — a typed hierarchy rooted at `BusFactorError`, so callers can
+  catch our failures distinctly from bugs and the CLI can exit cleanly.
+- **`logging_config.py`** — library-safe logging: modules stay quiet
+  (`get_logger`); only the application (`configure_logging`, called by the CLI)
+  attaches a handler. Imported into a larger service, Bus Factor does not hijack
+  the root logger.
+
+## Resilience in the ingest client
+
+Network I/O is isolated in `github_issues.py` and hardened: exponential backoff
+with retries, rate-limit detection (raises `RateLimitError` with the reset time
+when `X-RateLimit-Remaining` hits 0, honors `Retry-After`), `404 → RepoNotFound`,
+5xx → retry, and repo-slug validation to keep untrusted input out of the request
+URL. The pure transforms remain separate and unit-tested, so extraction logic is
+verified without touching the network.
+
 ## Why not fine-tune the facts?
 
 A recurring amateur move is to fine-tune a model on the corpus and call the
