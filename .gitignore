@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Generated at runtime — not source
+reports/
+data/
+
+# Local env
+.env
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

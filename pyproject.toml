@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bus-factor"
+version = "0.1.0"
+description = "Organizational memory that survives turnover — capture a departing person's knowledge, answer with citations, and prove it works with evals."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Bharath Kumar Rajesh" }]
+keywords = ["rag", "agents", "knowledge-management", "evaluation", "llm", "bus-factor"]
+
+# The CORE runs on the standard library alone. Everything below is an optional
+# accelerator, declared as an extra so `pip install .` stays instant and
+# `make demo` never depends on a network round-trip.
+dependencies = []
+
+[project.optional-dependencies]
+# Faster / higher-quality lexical retrieval than the bundled pure-python BM25.
+fast-retrieval = ["rank-bm25>=0.2.2"]
+# Dense retrieval for the hybrid store. Heavy; opt-in only.
+embeddings = ["sentence-transformers>=2.2", "numpy>=1.24"]
+# Real LLM answerer + LLM-as-judge. Without it we fall back to the offline
+# extractive provider and the lexical judge, so evals still run.
+llm = ["anthropic>=0.39"]
+dev = ["pytest>=7.4", "ruff>=0.5", "mypy>=1.8"]
+
+[project.scripts]
+bus-factor = "bus_factor.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/thebharathkumar/jober"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+bus_factor = ["_data/*.json"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501"]  # long lines are handled by the formatter, not the linter
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.mypy]
+python_version = "3.11"
+packages = ["bus_factor"]
+ignore_missing_imports = true
+warn_unused_ignores = true

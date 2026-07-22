@@ -1,0 +1,322 @@
+[
+  {
+    "issue": {
+      "number": 101,
+      "title": "How do I install datakit on Apple Silicon (M1/M2)?",
+      "body": "pip install fails to build a wheel on my MacBook Air M2. Is there an arm64 build?",
+      "html_url": "https://github.com/acme/datakit/issues/101",
+      "user": { "login": "user-riya" },
+      "created_at": "2025-11-02T10:00:00Z",
+      "labels": [{ "name": "install" }]
+    },
+    "comments": [
+      {
+        "body": "Yes, arm64 wheels are published since 2.3. Upgrade pip first with `pip install -U pip`, then `pip install datakit` will pull the prebuilt Apple Silicon wheel and skip the source build entirely. If you were on an old pip it tried to compile from source, which is why it failed.",
+        "author_association": "OWNER",
+        "user": { "login": "amelia-dk" },
+        "html_url": "https://github.com/acme/datakit/issues/101#issuecomment-1",
+        "created_at": "2025-11-02T12:30:00Z"
+      }
+    ]
+  },
+  {
+    "issue": {
+      "number": 102,
+      "title": "Why does datakit raise SchemaMismatchError when loading a saved dataset?",
+      "body": "I saved a dataset with 2.1 and now loading with 2.4 throws SchemaMismatchError.",
+      "html_url": "https://github.com/acme/datakit/issues/102",
+      "user": { "login": "user-omar" },
+      "created_at": "2025-09-15T09:00:00Z",
+      "labels": [{ "name": "bug" }]
+    },
+    "comments": [
+      {
+        "body": "SchemaMismatchError means the on-disk schema version predates the reader. Datasets written before 2.2 must be migrated once with `datakit migrate <path>`, which rewrites the header to the current schema. After migrating, 2.4 will load it without error. Pin the writer and reader to the same major version to avoid this in future.",
+        "author_association": "OWNER",
+        "user": { "login": "amelia-dk" },
+        "html_url": "https://github.com/acme/datakit/issues/102#issuecomment-1",
+        "created_at": "2025-09-15T15:00:00Z"
+      }
+    ]
+  },
+  {
+    "issue": {
+      "number": 103,
+      "title": "Can I stream a large CSV without loading it all into memory?",
+      "body": "My CSV is 40GB and datakit.load() OOMs. Is there a streaming API?",
+      "html_url": "https://github.com/acme/datakit/issues/103",
+      "user": { "login": "user-lena" },
+      "created_at": "2026-01-20T11:00:00Z",
+      "labels": [{ "name": "performance" }]
+    },
+    "comments": [
+      {
+        "body": "Use `datakit.stream(path, chunk_size=...)` instead of `load()`. stream() returns a lazy iterator of record batches and never holds the whole file in memory, so a 40GB CSV processes in constant memory. Combine it with `.filter()` before `.collect()` to push predicates down and read even less.",
+        "author_association": "OWNER",
+        "user": { "login": "amelia-dk" },
+        "html_url": "https://github.com/acme/datakit/issues/103#issuecomment-1",
+        "created_at": "2026-01-20T13:20:00Z"
+      }
+    ]
+  },
+  {
+    "issue": {
+      "number": 104,
+      "title": "How do I change the cache directory datakit uses?",
+      "body": "It writes to ~/.cache/datakit but I want it on another disk.",
+      "html_url": "https://github.com/acme/datakit/issues/104",
+      "user": { "login": "user-sam" },
+      "created_at": "2025-07-04T08:00:00Z",
+      "labels": [{ "name": "config" }]
+    },
+    "comments": [
+      {
+        "body": "Set the `DATAKIT_CACHE` environment variable to any path and datakit will use it for all cached artifacts. It takes effect at import time, so export it before starting Python. There is no runtime setter by design, because moving the cache mid-session would orphan open handles.",
+        "author_association": "OWNER",
+        "user": { "login": "amelia-dk" },
+        "html_url": "https://github.com/acme/datakit/issues/104#issuecomment-1",
+        "created_at": "2025-07-04T10:00:00Z"
+      }
+    ]
+  },
+  {
+    "issue": {
+      "number": 105,
+      "title": "What is the difference between .load() and .open()?",
+      "body": "Both seem to read a dataset. When should I use which?",
+      "html_url": "https://github.com/acme/datakit/issues/105",
+      "user": { "login": "user-priya" },
+      "created_at": "2025-10-11T14:00:00Z",
+      "labels": [{ "name": "docs" }]
+    },
+    "comments": [
+      {
+        "body": "`load()` is eager: it reads the entire dataset into memory and returns a materialized Frame. `open()` is lazy: it returns a handle that reads on demand and supports predicate pushdown. Use load() for small datasets you will touch repeatedly, and open() for large ones or when you only need a slice.",
+        "author_association": "OWNER",
+        "user": { "login": "amelia-dk" },
+        "html_url": "https://github.com/acme/datakit/issues/105#issuecomment-1",
+        "created_at": "2025-10-11T16:30:00Z"
+      }
+    ]
+  },
+  {
+    "issue": {
+      "number": 106,
+      "title": "Does datakit support reading Parquet files?",
+      "body": "Can I point datakit at a .parquet file directly?",
+      "html_url": "https://github.com/acme/datakit/issues/106",
+      "user": { "login": "user-tom" },
+      "created_at": "2025-08-22T09:30:00Z",
+      "labels": [{ "name": "question" }]
+    },
+    "comments": [
+      {
+        "body": "Yes. Pass `engine=\"parquet\"` to load() or open(), or just use a `.parquet` extension and datakit will auto-detect it. Parquet is the recommended format for large datasets because column pruning and predicate pushdown both work end to end.",
+        "author_association": "OWNER",
+        "user": { "login": "amelia-dk" },
+        "html_url": "https://github.com/acme/datakit/issues/106#issuecomment-1",
+        "created_at": "2025-08-22T11:00:00Z"
+      }
+    ]
+  },
+  {
+    "issue": {
+      "number": 107,
+      "title": "How do I set the number of worker threads for parallel reads?",
+      "body": "Reads only seem to use one core.",
+      "html_url": "https://github.com/acme/datakit/issues/107",
+      "user": { "login": "user-max" },
+      "created_at": "2026-02-14T13:00:00Z",
+      "labels": [{ "name": "performance" }]
+    },
+    "comments": [
+      {
+        "body": "Pass `workers=N` to open() or set `DATAKIT_WORKERS`. The default is 1 to stay predictable in notebooks. Setting workers to the number of physical cores usually gives the best throughput; going above physical cores rarely helps because reads are IO bound.",
+        "author_association": "MEMBER",
+        "user": { "login": "core-devon" },
+        "html_url": "https://github.com/acme/datakit/issues/107#issuecomment-1",
+        "created_at": "2026-02-14T15:00:00Z"
+      }
+    ]
+  },
+  {
+    "issue": {
+      "number": 108,
+      "title": "Why is my query slow on deeply nested JSON columns?",
+      "body": "Filtering on a nested field takes seconds per query.",
+      "html_url": "https://github.com/acme/datakit/issues/108",
+      "user": { "login": "user-ivan" },
+      "created_at": "2025-12-01T10:00:00Z",
+      "labels": [{ "name": "performance" }]
+    },
+    "comments": [
+      {
+        "body": "Nested JSON access is slow because datakit walks the document per row. Create a materialized path index with `.index(\"a.b.c\")` once, and subsequent filters on that path use the index and run in milliseconds. For very hot paths, promote the field to a top-level column at write time.",
+        "author_association": "OWNER",
+        "user": { "login": "amelia-dk" },
+        "html_url": "https://github.com/acme/datakit/issues/108#issuecomment-1",
+        "created_at": "2025-12-01T12:00:00Z"
+      }
+    ]
+  },
+  {
+    "issue": {
+      "number": 109,
+      "title": "Can I plug in a custom serializer for a new file format?",
+      "body": "I want datakit to read our proprietary binary format.",
+      "html_url": "https://github.com/acme/datakit/issues/109",
+      "user": { "login": "user-grace" },
+      "created_at": "2025-06-18T09:00:00Z",
+      "labels": [{ "name": "feature" }]
+    },
+    "comments": [
+      {
+        "body": "Yes, register a custom serializer with `datakit.register_serializer(name, reader, writer)`. The reader takes a file handle and yields record batches; the writer takes batches and writes bytes. Once registered you can pass `engine=name` anywhere a built-in engine is accepted.",
+        "author_association": "OWNER",
+        "user": { "login": "amelia-dk" },
+        "html_url": "https://github.com/acme/datakit/issues/109#issuecomment-1",
+        "created_at": "2025-06-18T11:30:00Z"
+      }
+    ]
+  },
+  {
+    "issue": {
+      "number": 110,
+      "title": "How does datakit handle timezone-aware timestamps?",
+      "body": "My timestamps lose their timezone after a round trip.",
+      "html_url": "https://github.com/acme/datakit/issues/110",
+      "user": { "login": "user-noah" },
+      "created_at": "2025-05-09T08:00:00Z",
+      "labels": [{ "name": "bug" }]
+    },
+    "comments": [
+      {
+        "body": "By default datakit normalizes timestamps to UTC and stores the original offset separately. To keep local wall-clock time on read, pass `tz=\"preserve\"` to load(). If you want a specific zone, pass an IANA name like `tz=\"America/New_York\"` and datakit will convert on read.",
+        "author_association": "OWNER",
+        "user": { "login": "amelia-dk" },
+        "html_url": "https://github.com/acme/datakit/issues/110#issuecomment-1",
+        "created_at": "2025-05-09T10:00:00Z"
+      }
+    ]
+  },
+  {
+    "issue": {
+      "number": 111,
+      "title": "What Python versions does datakit support?",
+      "body": "Does it still work on 3.9?",
+      "html_url": "https://github.com/acme/datakit/issues/111",
+      "user": { "login": "user-eva" },
+      "created_at": "2026-03-01T09:00:00Z",
+      "labels": [{ "name": "question" }]
+    },
+    "comments": [
+      {
+        "body": "datakit 2.x supports Python 3.10 and newer. Support for 3.9 was dropped in 2.0 because we rely on structural pattern matching internally. If you are stuck on 3.9, the 1.8 line still receives security fixes but no new features.",
+        "author_association": "OWNER",
+        "user": { "login": "amelia-dk" },
+        "html_url": "https://github.com/acme/datakit/issues/111#issuecomment-1",
+        "created_at": "2026-03-01T11:00:00Z"
+      }
+    ]
+  },
+  {
+    "issue": {
+      "number": 112,
+      "title": "How do I disable telemetry?",
+      "body": "I don't want datakit phoning home in CI.",
+      "html_url": "https://github.com/acme/datakit/issues/112",
+      "user": { "login": "user-kai" },
+      "created_at": "2025-04-12T08:00:00Z",
+      "labels": [{ "name": "privacy" }]
+    },
+    "comments": [
+      {
+        "body": "Set `DATAKIT_NO_TELEMETRY=1` and no usage data is collected or sent. Telemetry is also disabled automatically when datakit detects a CI environment via the CI env var, so most pipelines already send nothing.",
+        "author_association": "OWNER",
+        "user": { "login": "amelia-dk" },
+        "html_url": "https://github.com/acme/datakit/issues/112#issuecomment-1",
+        "created_at": "2025-04-12T09:30:00Z"
+      }
+    ]
+  },
+  {
+    "issue": {
+      "number": 113,
+      "title": "Why does connect() hang when I'm behind a corporate proxy?",
+      "body": "connect() never returns on our network.",
+      "html_url": "https://github.com/acme/datakit/issues/113",
+      "user": { "login": "user-bea" },
+      "created_at": "2026-04-05T10:00:00Z",
+      "labels": [{ "name": "networking" }]
+    },
+    "comments": [
+      {
+        "body": "connect() respects the standard HTTPS_PROXY and NO_PROXY environment variables but has no default timeout, so behind a misconfigured proxy it can hang forever. Set `connect(timeout=10)` so it fails fast, and make sure HTTPS_PROXY points at your proxy. If your proxy needs a custom CA, set REQUESTS_CA_BUNDLE to the bundle path.",
+        "author_association": "OWNER",
+        "user": { "login": "amelia-dk" },
+        "html_url": "https://github.com/acme/datakit/issues/113#issuecomment-1",
+        "created_at": "2026-04-05T12:00:00Z"
+      }
+    ]
+  },
+  {
+    "issue": {
+      "number": 114,
+      "title": "How do I migrate my config from v1 to v2?",
+      "body": "The v1 datakit.toml keys don't seem to work anymore.",
+      "html_url": "https://github.com/acme/datakit/issues/114",
+      "user": { "login": "user-leo" },
+      "created_at": "2025-03-20T09:00:00Z",
+      "labels": [{ "name": "migration" }]
+    },
+    "comments": [
+      {
+        "body": "Run `datakit config migrate` and it rewrites your v1 datakit.toml into the v2 layout, renaming `threads` to `workers` and moving cache settings under a `[cache]` table. The command prints a diff and asks for confirmation before writing, so it is safe to run on your existing file.",
+        "author_association": "OWNER",
+        "user": { "login": "amelia-dk" },
+        "html_url": "https://github.com/acme/datakit/issues/114#issuecomment-1",
+        "created_at": "2025-03-20T11:00:00Z"
+      }
+    ]
+  },
+  {
+    "issue": {
+      "number": 115,
+      "title": "Can I run datakit inside an AWS Lambda function?",
+      "body": "The package seems too big for a Lambda layer.",
+      "html_url": "https://github.com/acme/datakit/issues/115",
+      "user": { "login": "user-hana" },
+      "created_at": "2023-11-30T09:00:00Z",
+      "labels": [{ "name": "deployment" }]
+    },
+    "comments": [
+      {
+        "body": "Yes. Install the `datakit-slim` extra which drops the optional native engines and fits well under the Lambda layer size limit. Point `DATAKIT_CACHE` at `/tmp` because the rest of the Lambda filesystem is read-only, and cold starts will be a couple hundred milliseconds.",
+        "author_association": "OWNER",
+        "user": { "login": "amelia-dk" },
+        "html_url": "https://github.com/acme/datakit/issues/115#issuecomment-1",
+        "created_at": "2023-11-30T12:00:00Z"
+      }
+    ]
+  },
+  {
+    "issue": {
+      "number": 116,
+      "title": "How do I contribute a new storage backend?",
+      "body": "I'd like to add an S3-compatible backend.",
+      "html_url": "https://github.com/acme/datakit/issues/116",
+      "user": { "login": "user-raj" },
+      "created_at": "2023-08-14T09:00:00Z",
+      "labels": [{ "name": "contributing" }]
+    },
+    "comments": [
+      {
+        "body": "Implement the Backend protocol in datakit/backends/base.py: the read, write, and list methods with the documented signatures. Register it in the entry-point group `datakit.backends` in your package metadata, and datakit will discover it at import. Add a conformance test using our shared backend test suite so behavior stays consistent.",
+        "author_association": "OWNER",
+        "user": { "login": "amelia-dk" },
+        "html_url": "https://github.com/acme/datakit/issues/116#issuecomment-1",
+        "created_at": "2023-08-14T12:00:00Z"
+      }
+    ]
+  }
+]
