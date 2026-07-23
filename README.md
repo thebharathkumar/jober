@@ -105,6 +105,7 @@ export GITHUB_TOKEN=...           # optional, raises the rate limit
 python -m bus_factor.cli ingest simonw/datasette --out data --max-issues 300
 python -m bus_factor.cli eval --docs data/docs.jsonl --eval data/eval.jsonl
 python -m bus_factor.cli eval --docs data/docs.jsonl --eval data/eval.jsonl --leave-one-out
+python -m bus_factor.cli eval --docs data/docs.jsonl --eval data/eval.jsonl --leave-one-out --calibrate
 ```
 
 ### Turn on the real model
@@ -129,7 +130,7 @@ updates only what changed.
 python -m bus_factor.cli ingest simonw/datasette --out data --db data/knowledge.db
 python -m bus_factor.cli stats --db data/knowledge.db
 python -m bus_factor.cli ask "How do I enable full-text search?" --db data/knowledge.db
-python -m bus_factor.cli eval --db data/knowledge.db --leave-one-out
+python -m bus_factor.cli eval --db data/knowledge.db --leave-one-out --calibrate
 ```
 
 ### Use as a library

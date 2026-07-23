@@ -162,6 +162,8 @@ def cmd_eval(args: argparse.Namespace) -> int:
     else:
         qa = load_qa_pairs(args.eval)
         bf = BusFactor.from_jsonl(args.docs, settings=settings, use_dense=args.dense)
+    if args.calibrate:
+        bf.fit_calibration(qa, leave_one_out=args.leave_one_out)
     report = bf.evaluate(qa, leave_one_out=args.leave_one_out)
     print(report.to_pretty())
     _write_report(args.report, report.to_dict())
@@ -208,6 +210,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         dest="leave_one_out",
         help="withhold each question's own answer (stricter generalization test)",
+    )
+    e.add_argument(
+        "--calibrate",
+        action="store_true",
+        help="fit + apply isotonic confidence calibration with abstention",
     )
     e.set_defaults(func=cmd_eval)
 
