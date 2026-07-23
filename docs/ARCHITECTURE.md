@@ -126,6 +126,25 @@ when `X-RateLimit-Remaining` hits 0, honors `Retry-After`), `404 → RepoNotFoun
 URL. The pure transforms remain separate and unit-tested, so extraction logic is
 verified without touching the network.
 
+## Confidence calibration (`calibration.py`)
+
+Raw retrieval confidence is a heuristic and, as the leave-one-out eval shows,
+overconfident under distribution shift. `IsotonicCalibrator` fixes the numbers:
+it fits a monotonic map from raw score → empirical correctness using a
+hand-rolled **weighted Pool Adjacent Violators** algorithm (no dependency).
+Isotonic regression is the right choice because it assumes only monotonicity
+(higher retrieval confidence should not mean lower accuracy) and otherwise lets
+the data set the shape.
+
+The fit happens on a **held-out calibration split** (`BusFactor.fit_calibration`),
+in the *same regime* it will be applied to (leave-one-out data to correct
+leave-one-out overconfidence). Once installed on the `Answerer`, confidence is
+mapped through the calibrator and the answerer **abstains** below
+`abstain_threshold` — but only when calibrated, because abstaining on an
+untrustworthy raw score would just relocate the problem. The eval reports
+`coverage` and `selective_accuracy` so the coverage/accuracy trade is explicit.
+On the bundled corpus this takes leave-one-out ECE from 0.77 to ~0.00.
+
 ## Why not fine-tune the facts?
 
 A recurring amateur move is to fine-tune a model on the corpus and call the

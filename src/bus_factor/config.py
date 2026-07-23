@@ -39,6 +39,9 @@ class Settings:
     staleness_warn_days: int = 365
     # Below this retrieval-derived confidence we recommend routing to a human.
     low_confidence_threshold: float = 0.35
+    # Below this CALIBRATED confidence the answerer abstains ("I don't know").
+    # Only applied when a calibrator is installed, since raw scores aren't trusted.
+    abstain_threshold: float = 0.35
 
     # --- llm provider ---
     # If unset, the pipeline uses the offline extractive provider so evals and
@@ -76,6 +79,10 @@ class Settings:
             raise ConfigError(
                 f"low_confidence_threshold must be in [0, 1], got {self.low_confidence_threshold}"
             )
+        if not 0.0 <= self.abstain_threshold <= 1.0:
+            raise ConfigError(
+                f"abstain_threshold must be in [0, 1], got {self.abstain_threshold}"
+            )
         if self.staleness_warn_days < 0:
             raise ConfigError(
                 f"staleness_warn_days must be >= 0, got {self.staleness_warn_days}"
@@ -88,6 +95,7 @@ class Settings:
             rrf_k=_int("BF_RRF_K", 60),
             staleness_warn_days=_int("BF_STALENESS_WARN_DAYS", 365),
             low_confidence_threshold=_float("BF_LOW_CONFIDENCE", 0.35),
+            abstain_threshold=_float("BF_ABSTAIN_THRESHOLD", 0.35),
             anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY", ""),
             model=os.environ.get("BF_MODEL", "claude-sonnet-5"),
             max_tokens=_int("BF_MAX_TOKENS", 700),

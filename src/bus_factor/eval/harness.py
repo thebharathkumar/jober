@@ -22,6 +22,7 @@ from datetime import date
 from typing import Any
 
 from bus_factor.agent.answerer import Answerer
+from bus_factor.calibration import IsotonicCalibrator
 from bus_factor.config import Settings
 from bus_factor.eval.metrics import (
     expected_calibration_error,
@@ -64,6 +65,8 @@ class EvalReport:
             f"  mean ROUGE-L        : {s['mean_rouge_l']:.3f}",
             f"  retrieval hit-rate  : {s['retrieval_hit_rate']:.1%}",
             f"  abstention rate     : {s['abstention_rate']:.1%}",
+            f"  coverage            : {s['coverage']:.1%}",
+            f"  selective accuracy  : {s['selective_accuracy']:.1%}  (when it answers)",
             "-" * 60,
             f"  mean confidence     : {s['mean_confidence']:.3f}",
             f"  calibration ECE     : {s['ece']:.3f}   (0 = perfect)",
@@ -84,22 +87,56 @@ def belongs_to_source(doc: Document, source_id: str) -> bool:
 
 
 def make_leave_one_out_factory(
-    documents: list[Document], settings: Settings, use_dense: bool = False
+    documents: list[Document],
+    settings: Settings,
+    use_dense: bool = False,
+    calibrator: IsotonicCalibrator | None = None,
 ) -> Callable[[QAPair], Answerer]:
     """Build a per-question answerer whose store excludes that question's own answer.
 
     This is what turns the eval from 'can it echo the stored answer' (trivial)
     into 'can it answer from the person's *other* recorded knowledge' (the real
     generalization question, and the one that stresses the trust layer).
+
+    Pass ``calibrator`` to evaluate the calibrated (and abstaining) system.
     """
 
     def factory(qa: QAPair) -> Answerer:
         kept = [d for d in documents if not belongs_to_source(d, qa.source.id)]
         store = MemoryStore(rrf_k=settings.rrf_k, use_dense=use_dense)
         store.add(kept)
-        return Answerer(store, settings)
+        return Answerer(store, settings, calibrator=calibrator)
 
     return factory
+
+
+def fit_calibrator(
+    calib_pairs: list[QAPair],
+    judge: Any,
+    *,
+    answerer: Answerer | None = None,
+    answerer_factory: Callable[[QAPair], Answerer] | None = None,
+    as_of: date | None = None,
+) -> IsotonicCalibrator:
+    """Fit a confidence calibrator on a held-out calibration split.
+
+    Runs the (uncalibrated) answerer over ``calib_pairs``, pairs each raw
+    confidence with whether the answer was judged correct, and fits an isotonic
+    map. Must be evaluated in the SAME regime it will be applied to — pass an
+    ``answerer_factory`` for leave-one-out so the calibration data reflects the
+    distribution shift the calibrator has to correct.
+    """
+    if answerer is None and answerer_factory is None:
+        raise ValueError("provide either answerer or answerer_factory")
+    raw: list[float] = []
+    correct: list[bool] = []
+    for qa in calib_pairs:
+        active = answerer_factory(qa) if answerer_factory else answerer
+        assert active is not None
+        ans = active.answer(qa.question, as_of=as_of)
+        raw.append(ans.meta.get("raw_confidence", ans.confidence))
+        correct.append(judge.judge(qa.question, qa.reference_answer, ans.text).correct)
+    return IsotonicCalibrator().fit(raw, correct)
 
 
 def run_eval(
@@ -147,9 +184,10 @@ def run_eval(
                 "f1": round(f1, 4),
                 "rouge_l": round(rouge, 4),
                 "confidence": ans.confidence,
+                "raw_confidence": ans.meta.get("raw_confidence", ans.confidence),
                 "retrieval_hit": retrieval_hit,
                 "staleness_days": ans.staleness_days,
-                "abstained": _is_abstention(ans.text),
+                "abstained": ans.meta.get("abstained", _is_abstention(ans.text)),
                 "n_evidence": ans.meta.get("n_evidence", 0),
             }
         )
@@ -158,6 +196,14 @@ def run_eval(
 
     n = len(holdout)
     calibration = _calibration_table(confidences, correct_flags)
+
+    # Selective metrics: when the system abstains, that answer is excluded from
+    # "answered". Coverage is how often it answers; selective accuracy is how
+    # often it is right *when it chooses to answer*. A good trust layer trades a
+    # little coverage for much higher selective accuracy.
+    answered = [i for i in items if not i["abstained"]]
+    coverage = len(answered) / n if n else 0.0
+    selective_accuracy = mean([1.0 if i["correct"] else 0.0 for i in answered])
 
     summary = {
         "n": n,
@@ -168,6 +214,8 @@ def run_eval(
         "mean_rouge_l": mean([i["rouge_l"] for i in items]),
         "retrieval_hit_rate": mean([1.0 if i["retrieval_hit"] else 0.0 for i in items]),
         "abstention_rate": mean([1.0 if i["abstained"] else 0.0 for i in items]),
+        "coverage": coverage,
+        "selective_accuracy": selective_accuracy,
         "mean_confidence": mean(confidences),
         "ece": expected_calibration_error(confidences, correct_flags),
         "calibration_table": calibration,

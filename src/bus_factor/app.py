@@ -17,9 +17,15 @@ from __future__ import annotations
 from pathlib import Path
 
 from bus_factor.agent.answerer import Answerer
+from bus_factor.calibration import IsotonicCalibrator
 from bus_factor.config import Settings
 from bus_factor.eval.dataset import load_documents, split_holdout
-from bus_factor.eval.harness import EvalReport, make_leave_one_out_factory, run_eval
+from bus_factor.eval.harness import (
+    EvalReport,
+    fit_calibrator,
+    make_leave_one_out_factory,
+    run_eval,
+)
 from bus_factor.eval.judge import get_judge
 from bus_factor.logging_config import get_logger
 from bus_factor.memory.persistence import SqliteKnowledgeBase
@@ -75,9 +81,33 @@ class BusFactor:
         judge = judge or get_judge(self.settings)
         _, holdout = split_holdout(qa_pairs, self.settings.holdout_fraction)
         if leave_one_out:
-            factory = make_leave_one_out_factory(self.store.documents, self.settings)
+            factory = make_leave_one_out_factory(
+                self.store.documents, self.settings, calibrator=self.answerer.calibrator
+            )
             return run_eval(holdout, judge, answerer_factory=factory)
         return run_eval(holdout, judge, answerer=self.answerer)
+
+    def fit_calibration(
+        self, qa_pairs: list[QAPair], leave_one_out: bool = True
+    ) -> IsotonicCalibrator:
+        """Fit and install a confidence calibrator, then enable abstention.
+
+        Fits on the TRAIN split (disjoint from the holdout ``evaluate`` scores on),
+        in the same regime it will be applied to. After this, ``ask`` and
+        ``evaluate`` return calibrated confidences and abstain below the threshold.
+        """
+        train, _ = split_holdout(qa_pairs, self.settings.holdout_fraction)
+        judge = get_judge(self.settings)
+        # Fit against an UNCALIBRATED answerer so the raw scores are learned cleanly.
+        raw_answerer = Answerer(self.store, self.settings)
+        if leave_one_out:
+            factory = make_leave_one_out_factory(self.store.documents, self.settings)
+            calibrator = fit_calibrator(train, judge, answerer_factory=factory)
+        else:
+            calibrator = fit_calibrator(train, judge, answerer=raw_answerer)
+        self.answerer.calibrator = calibrator
+        log.info("fitted confidence calibrator on %d calibration questions", len(train))
+        return calibrator
 
     @property
     def document_count(self) -> int:

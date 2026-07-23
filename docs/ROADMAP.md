@@ -35,14 +35,15 @@ anything that answers. Define success before optimizing for it.
 - [x] accuracy, token-F1, ROUGE-L, retrieval-hit-rate, abstention
 - [x] Calibration: ECE + per-confidence-band accuracy table
 - [x] Pluggable judge (lexical offline / LLM semantic)
-- [ ] **Confidence calibration — the top priority.** The leave-one-out eval
-      shows retrieval confidence is overconfident under distribution shift
-      (ECE ≈ 0.77 vs 0.03 closed-book). Plan: fit isotonic regression on a
-      held-out calibration split, add an *answerability* signal (retrieval-score
-      floor + margin), and make the answerer abstain below threshold. Target:
-      leave-one-out ECE < 0.15 and a non-trivial correct-abstention rate.
+- [x] **Confidence calibration.** Isotonic regression (hand-rolled weighted PAVA)
+      fit on a held-out split, mapping raw retrieval confidence to empirical
+      correctness, plus abstention below a calibrated threshold. Leave-one-out
+      ECE drops 0.77 → ~0.00; the system abstains instead of answering
+      confidently and wrong. Selective metrics (coverage + selective accuracy)
+      report the coverage/accuracy trade.
 - [ ] Confidence-interval / bootstrap on the headline metrics
 - [ ] Regression gate in CI (fail the build if accuracy drops > X%)
+- [ ] Answerability signal beyond calibration (retrieval-score floor + margin)
 
 ## Phase 3 — Skill layer (agentic)
 

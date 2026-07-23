@@ -30,26 +30,33 @@ reports more than a single vanity metric:
 
 Running `bus-factor demo` on the bundled sample corpus (offline, no API key):
 
-| Mode | Accuracy | token-F1 | Retrieval hit-rate | ECE (calibration) |
-|------|---------:|---------:|-------------------:|------------------:|
-| **Closed-book** (answer is in the corpus) | 100% | 0.95 | 100% | **0.03** |
-| **Leave-one-out** (answer withheld) | 0% | 0.20 | 0% | **0.77** |
+| Mode | Accuracy | Retrieval hit-rate | Abstention | ECE (calibration) |
+|------|---------:|-------------------:|-----------:|------------------:|
+| **Closed-book** (answer is in the corpus) | 100% | 100% | 0% | **0.03** |
+| **Leave-one-out, raw** (answer withheld) | 0% | 0% | 0% | **0.77** |
+| **Leave-one-out, calibrated** (answer withheld) | — | 0% | **100%** | **0.00** |
 
-Read those two rows together — that contrast *is* the result:
+Read those three rows together — that progression *is* the result:
 
 - **Closed-book** measures whether captured knowledge is retrievable and
   faithfully reproduced. It is well-calibrated (ECE 0.03): when the system is
   confident, it is right.
-- **Leave-one-out** withholds each question's own answer and forces the system
-  to respond from the person's *other* recorded knowledge. This is the honest
-  generalization test, and it exposes a real weakness the harness is designed to
-  catch: **naive retrieval confidence is overconfident under distribution
-  shift** (ECE jumps to 0.77) — BM25 still finds lexically-similar documents when
-  the true answer is absent, and reports high confidence anyway.
+- **Leave-one-out, raw** withholds each question's own answer and forces the
+  system to respond from the person's *other* recorded knowledge. This is the
+  honest generalization test, and it exposes a real weakness: **naive retrieval
+  confidence is overconfident under distribution shift** (ECE 0.77) — BM25 still
+  finds lexically-similar documents when the true answer is absent, and reports
+  high confidence anyway.
+- **Leave-one-out, calibrated** fits an isotonic calibrator on a held-out split
+  and enables abstention. Confidence becomes trustworthy (**ECE 0.77 → 0.00**)
+  and, on this corpus where the withheld answers genuinely aren't recoverable,
+  the system **abstains instead of answering confidently and wrong**. On a real
+  corpus with cross-answer overlap the same calibrator learns a non-trivial map
+  — answering the recoverable questions and abstaining on the rest (the
+  calibration unit tests demonstrate that on controlled data).
 
-Surfacing that gap instead of hiding it is the entire reason evals exist.
-Calibrating confidence so the system abstains when it truly doesn't know is the
-[top roadmap item](docs/ROADMAP.md).
+Finding the calibration gap with an eval, then closing it, is the entire loop
+evals exist for.
 
 *(Numbers above are from the tiny bundled fixture and are illustrative of the
 harness, not a benchmark claim. Point `bus-factor ingest` at a real repo to
@@ -201,7 +208,7 @@ This is a portfolio project, so it is precise about what "production-ready"
 means here. What is built to the bar of a serious internal service:
 
 - **Typed throughout, `mypy` clean**, ships a `py.typed` marker.
-- **56 tests, ~82% coverage**, enforced in CI (a threshold gate, not a vanity
+- **65 tests, ~83% coverage**, enforced in CI (a threshold gate, not a vanity
   badge). The uncovered remainder is network I/O and the API-key-gated LLM
   paths, exercised in integration rather than unit tests.
 - **Typed error hierarchy** (`BusFactorError` and friends) — the CLI reports
@@ -237,18 +244,20 @@ src/bus_factor/
              persistence.py       # SQLite knowledge base, incremental upsert
   agent/     answerer.py          # retrieve -> grounded answer with provenance
              provider.py          # Anthropic + offline extractive fallback
-  eval/      harness.py           # closed-book + leave-one-out, full report
+  calibration.py                  # isotonic (weighted PAVA) confidence calibration
+  eval/      harness.py           # closed-book + leave-one-out, calibration, full report
              metrics.py judge.py dataset.py
-tests/                            # 56 tests, no network required
+tests/                            # 65 tests, no network required
 ```
 
 ## Status & roadmap
 
 This is a working foundation, built in the open as a portfolio project. It is
 honest about what is done and what is next — see [docs/ROADMAP.md](docs/ROADMAP.md).
-The headline next step is **confidence calibration** (close the ECE gap the
-leave-one-out eval exposes), followed by a persona/voice layer via a small
-MLX LoRA fine-tune kept strictly separate from the facts.
+Confidence calibration (isotonic + abstention) is **done** — the leave-one-out
+ECE gap is closed from 0.77 to ~0.00. The next step is a persona/voice layer via
+a small MLX LoRA fine-tune kept strictly separate from the facts, plus the
+agentic skill layer (tool-use to act, not just recall).
 
 ## License
 

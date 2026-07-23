@@ -17,9 +17,12 @@ from __future__ import annotations
 from datetime import date
 
 from bus_factor.agent.provider import LLMProvider, get_provider
+from bus_factor.calibration import IsotonicCalibrator
 from bus_factor.config import Settings
 from bus_factor.memory.store import MemoryStore
 from bus_factor.models import Answer, Citation
+
+ABSTENTION_TEXT = "I don't have reliable recorded knowledge to answer that confidently."
 
 PERSONA_SYSTEM = (
     "You are the recorded professional knowledge of a specific person, captured "
@@ -48,10 +51,14 @@ class Answerer:
         store: MemoryStore,
         settings: Settings | None = None,
         provider: LLMProvider | None = None,
+        calibrator: IsotonicCalibrator | None = None,
     ) -> None:
         self.store = store
         self.settings = settings or Settings.from_env()
         self.provider = provider or get_provider(self.settings)
+        # When set, raw retrieval confidence is mapped through the calibrator and
+        # the answerer abstains below the (now trustworthy) abstain threshold.
+        self.calibrator = calibrator
 
     def answer(self, question: str, as_of: date | None = None) -> Answer:
         as_of = as_of or date.today()
@@ -81,10 +88,27 @@ class Answerer:
         ages = [c.age_days for c in citations if c.age_days is not None]
         staleness = min(ages) if ages else None  # freshest evidence drives the flag
 
-        confidence = _confidence_from_results(results[0].lexical_score, len(results))
+        raw_confidence = _confidence_from_results(results[0].lexical_score, len(results))
+        confidence = (
+            round(self.calibrator.predict(raw_confidence), 3)
+            if self.calibrator is not None
+            else raw_confidence
+        )
+
+        # Abstain only when confidence is trustworthy (i.e. calibrated). Abstaining
+        # on the raw, uncalibrated score would just move the overconfidence problem
+        # around; once calibrated, a low number genuinely means "I don't know".
+        abstained = False
+        if self.calibrator is not None and confidence < self.settings.abstain_threshold:
+            text = ABSTENTION_TEXT
+            abstained = True
+
         meta = {
             "provider": self.provider.name,
             "n_evidence": len(results),
+            "raw_confidence": raw_confidence,
+            "calibrated": self.calibrator is not None,
+            "abstained": abstained,
             "low_confidence": confidence < self.settings.low_confidence_threshold,
             "stale": staleness is not None and staleness > self.settings.staleness_warn_days,
         }

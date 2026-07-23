@@ -66,3 +66,24 @@ def test_no_evidence_returns_zero_confidence_abstention():
     assert ans.confidence == 0.0
     assert ans.citations == []
     assert ans.meta["n_evidence"] == 0
+
+
+def test_calibrated_answerer_abstains_below_threshold():
+    from bus_factor.calibration import IsotonicCalibrator
+
+    # A calibrator fit on all-wrong data maps every raw score to ~0.
+    cal = IsotonicCalibrator().fit([0.5, 0.9], [False, False])
+    answerer = Answerer(_store(), Settings(abstain_threshold=0.35), calibrator=cal)
+    ans = answerer.answer("How do I change the cache directory?", as_of=date(2026, 7, 22))
+    assert ans.meta["abstained"] is True
+    assert ans.meta["calibrated"] is True
+    assert "reliable recorded knowledge" in ans.text.lower()
+    # Raw confidence is preserved for observability even though we abstained.
+    assert ans.meta["raw_confidence"] > 0.0
+
+
+def test_uncalibrated_answerer_never_abstains_on_evidence():
+    answerer = Answerer(_store(), Settings())
+    ans = answerer.answer("How do I change the cache directory?", as_of=date(2026, 7, 22))
+    assert ans.meta["abstained"] is False
+    assert ans.meta["calibrated"] is False

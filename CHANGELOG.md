@@ -7,6 +7,13 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- **Confidence calibration**: `IsotonicCalibrator` (hand-rolled weighted PAVA,
+  zero-dep) maps raw retrieval confidence to empirical correctness, fit on a
+  held-out split via `BusFactor.fit_calibration`. The answerer abstains below a
+  calibrated `abstain_threshold`. Leave-one-out ECE drops 0.77 → ~0.00.
+- **Selective metrics** in the eval report: `coverage` and `selective_accuracy`
+  (accuracy when the system chooses to answer), plus a third demo mode showing
+  the before/after calibration contrast.
 - **Persistence**: `SqliteKnowledgeBase`, a durable single-file knowledge base
   with incremental (upsert-by-id) ingest. New `--db` option on `ingest`, `ask`,
   and `eval`, and a `stats` command.

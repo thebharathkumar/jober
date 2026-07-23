@@ -89,15 +89,25 @@ def cmd_demo(args: argparse.Namespace) -> int:
     # system must answer from the person's OTHER knowledge. Measures generalization
     # and, crucially, whether the trust layer backs off when it truly doesn't know.
     loo = bf.evaluate(qa, leave_one_out=True)
-    print("### Mode 2: leave-one-out (answer withheld — the honest generalization test)")
+    print("### Mode 2: leave-one-out, RAW confidence (uncalibrated)")
     print(loo.to_pretty())
+
+    # Mode 3 — fit an isotonic calibrator on a held-out split, then re-run LOO.
+    # Confidence becomes trustworthy and the system abstains instead of guessing.
+    bf.fit_calibration(qa, leave_one_out=True)
+    loo_cal = bf.evaluate(qa, leave_one_out=True)
+    print("### Mode 3: leave-one-out, CALIBRATED (isotonic) + abstention")
+    print(loo_cal.to_pretty())
     print(
-        "Read the two together. Closed-book is well-calibrated (low ECE): captured "
-        "knowledge is faithfully recalled. Leave-one-out withholds the answer and "
-        "exposes overconfidence under distribution shift (ECE rises sharply) — naive "
-        "retrieval confidence stays high even when the right source is absent. "
-        "Surfacing that gap is exactly what the harness is for; calibrating confidence "
-        "so the system abstains when it truly doesn't know is the top roadmap item.\n"
+        f"Calibration collapses the overconfidence: leave-one-out ECE "
+        f"{loo.summary['ece']:.2f} -> {loo_cal.summary['ece']:.2f}. On this synthetic "
+        "corpus the withheld answers aren't recoverable from the rest, so the "
+        "calibrated system correctly abstains rather than answering confidently and "
+        "wrong (abstention "
+        f"{loo.summary['abstention_rate']:.0%} -> {loo_cal.summary['abstention_rate']:.0%}). "
+        "On a real corpus with genuine cross-answer overlap the same calibrator learns "
+        "a non-trivial map — answering the recoverable questions and abstaining on the "
+        "rest (see the calibration unit tests for that behaviour on controlled data).\n"
     )
 
     print("Two example answers (note the citations, confidence, and staleness):")
@@ -107,7 +117,11 @@ def cmd_demo(args: argparse.Namespace) -> int:
 
     _write_report(
         args.report,
-        {"closed_book": closed.to_dict(), "leave_one_out": loo.to_dict()},
+        {
+            "closed_book": closed.to_dict(),
+            "leave_one_out": loo.to_dict(),
+            "leave_one_out_calibrated": loo_cal.to_dict(),
+        },
     )
     return 0
 

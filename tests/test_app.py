@@ -59,3 +59,18 @@ def test_evaluate_closed_book_vs_leave_one_out():
     assert closed.summary["retrieval_hit_rate"] == 1.0
     # Leave-one-out: the answer is withheld, so its source can never be retrieved.
     assert loo.summary["retrieval_hit_rate"] == 0.0
+
+
+def test_fit_calibration_reduces_loo_ece_and_enables_abstention():
+    docs = [_answer_doc(i) for i in range(1, 13)]
+    qa = [_qa(i) for i in range(1, 13)]
+    bf = BusFactor.from_documents(docs, settings=Settings(holdout_fraction=0.4))
+
+    before = bf.evaluate(qa, leave_one_out=True).summary
+    bf.fit_calibration(qa, leave_one_out=True)
+    after = bf.evaluate(qa, leave_one_out=True).summary
+
+    # Calibration must not worsen ECE, and here it should collapse overconfidence.
+    assert after["ece"] <= before["ece"]
+    # The withheld answers aren't recoverable, so the calibrated system abstains more.
+    assert after["abstention_rate"] >= before["abstention_rate"]
