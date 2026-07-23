@@ -62,6 +62,27 @@ evals exist for.
 harness, not a benchmark claim. Point `bus-factor ingest` at a real repo to
 generate a real eval set — see below.)*
 
+### A larger benchmark: calibration that isn't degenerate
+
+The tiny fixture makes calibration look all-or-nothing (every withheld answer is
+unrecoverable, so it just abstains on everything). A realistic corpus is a *mix*:
+some questions are recoverable from a person's other answers, some aren't. The
+bundled generator builds exactly that — clusters of related issues that share
+knowledge, plus unique singletons — deterministically, so `python
+scripts/synthetic_benchmark.py` reproduces these numbers on any machine:
+
+| Leave-one-out (102-doc corpus) | Accuracy | Coverage | Selective accuracy | ECE |
+|--------------------------------|---------:|---------:|-------------------:|----:|
+| **Raw** (answers everything) | 60% | 100% | 60% | 0.16 |
+| **Calibrated + abstention** | — | 66% | **87%** | **0.07** |
+
+This is selective prediction working: the calibrated system **abstains on the
+34% of questions it can't recover**, so when it *does* answer it is right 87% of
+the time instead of 60%, and its confidence is calibrated (ECE 0.16 → 0.07). It
+trades coverage for answers you can trust — the behavior a knowledge-continuity
+tool actually needs. (Offline extractive baseline; a real LLM answerer lifts the
+accuracy rows, but the calibration *delta* is what this demonstrates.)
+
 ---
 
 ## Quickstart
@@ -209,7 +230,7 @@ This is a portfolio project, so it is precise about what "production-ready"
 means here. What is built to the bar of a serious internal service:
 
 - **Typed throughout, `mypy` clean**, ships a `py.typed` marker.
-- **65 tests, ~83% coverage**, enforced in CI (a threshold gate, not a vanity
+- **69 tests, ~83% coverage**, enforced in CI (a threshold gate, not a vanity
   badge). The uncovered remainder is network I/O and the API-key-gated LLM
   paths, exercised in integration rather than unit tests.
 - **Typed error hierarchy** (`BusFactorError` and friends) — the CLI reports
@@ -246,9 +267,11 @@ src/bus_factor/
   agent/     answerer.py          # retrieve -> grounded answer with provenance
              provider.py          # Anthropic + offline extractive fallback
   calibration.py                  # isotonic (weighted PAVA) confidence calibration
+  benchmark.py                    # deterministic synthetic corpus for the calibration story
   eval/      harness.py           # closed-book + leave-one-out, calibration, full report
              metrics.py judge.py dataset.py
-tests/                            # 65 tests, no network required
+scripts/     synthetic_benchmark.py  # reproduces the larger-corpus calibration numbers
+tests/                            # 69 tests, no network required
 ```
 
 ## Status & roadmap

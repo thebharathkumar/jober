@@ -49,42 +49,49 @@ class ExtractiveProvider:
         if not contexts or not q_words:
             return "I don't have enough recorded knowledge to answer that confidently."
 
+        # Trust the retriever: answer from the single highest-ranked document
+        # that yields usable content, rather than re-competing sentences across
+        # all of them. Retrieval already ranked the right source first (often via
+        # a strong title match the body doesn't echo), so drawing from a
+        # lower-ranked neighbour just because a sentence shares a common word is
+        # exactly the top-k pollution to avoid.
+        for ctx in contexts:  # in retrieval-rank order
+            picked = self._best_sentences(ctx, q_words)
+            if picked:
+                return " ".join(picked)
+        return "I don't have enough recorded knowledge to answer that confidently."
+
+    def _best_sentences(self, context: str, q_words: set[str]) -> list[str]:
         scored: list[tuple[float, str]] = []
-        for ctx_rank, ctx in enumerate(contexts):
-            # Contexts arrive in retrieval-rank order. Decay by rank so the
-            # top document dominates and sentences don't bleed in from weakly
-            # related evidence lower down the list (classic top-k pollution).
-            rank_weight = 1.0 / (1.0 + ctx_rank)
-            for sent in _SENT_RE.split(ctx):
-                sent = sent.strip()
-                if len(sent) < 15:
-                    continue
-                s_words = _words(sent)
-                overlap = len(q_words & s_words)
-                if overlap == 0:
-                    continue
-                # A real answer both matches the question's topic AND adds new
-                # information. Sentences that are almost entirely question words
-                # are echoes of the prompt, not answers — drop them.
-                novelty_ratio = len(s_words - q_words) / len(s_words)
-                if novelty_ratio < 0.3:
-                    continue
-                score = overlap * (1 + novelty_ratio) * rank_weight
-                scored.append((score, sent))
-
+        for sent in _SENT_RE.split(context):
+            sent = sent.strip()
+            if len(sent) < 15:
+                continue
+            s_words = _words(sent)
+            if not s_words:
+                continue
+            # Drop sentences that are almost entirely question words — those are
+            # echoes of the prompt (e.g. a "Re: <question>" title), not answers.
+            novelty_ratio = len(s_words - q_words) / len(s_words)
+            if novelty_ratio < 0.3:
+                continue
+            # Rank by question overlap, but keep overlap-0 sentences in play (the
+            # "+1") so the top document's informative lead is still returned even
+            # when its wording doesn't lexically echo the question.
+            overlap = len(q_words & s_words)
+            scored.append(((overlap + 1) * (1 + novelty_ratio), sent))
         if not scored:
-            return "I don't have enough recorded knowledge to answer that confidently."
-
+            return []
         scored.sort(key=lambda x: x[0], reverse=True)
-        seen: set[str] = set()
         chosen: list[str] = []
+        seen: set[str] = set()
         for _score, sent in scored:
             if sent not in seen:
                 seen.add(sent)
                 chosen.append(sent)
             if len(chosen) >= self.max_sentences:
                 break
-        return " ".join(chosen)
+        return chosen
 
 
 class AnthropicProvider:

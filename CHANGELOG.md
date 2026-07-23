@@ -7,6 +7,14 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- **Synthetic benchmark** (`bus_factor/benchmark.py`, `scripts/synthetic_benchmark.py`):
+  a deterministic ~100-doc corpus mixing recoverable clusters with unrecoverable
+  singletons, so calibration is non-degenerate. Shows leave-one-out selective
+  accuracy 60% → 87% and ECE 0.16 → 0.07 via abstention.
+- Extractive provider now answers from the highest-ranked retrieved document
+  (trust-the-retriever) instead of re-competing sentences across all of them,
+  fixing cases where the right source was retrieved but a neighbour's sentence
+  was returned.
 - **Confidence calibration**: `IsotonicCalibrator` (hand-rolled weighted PAVA,
   zero-dep) maps raw retrieval confidence to empirical correctness, fit on a
   held-out split via `BusFactor.fit_calibration`. The answerer abstains below a
