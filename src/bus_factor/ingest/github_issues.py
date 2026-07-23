@@ -191,7 +191,15 @@ def _handle_http_error(exc: urllib.error.HTTPError, url: str) -> float | None:
                 reset_epoch=reset_epoch,
             ) from exc
         retry_after = exc.headers.get("Retry-After")
-        return float(retry_after) if retry_after and retry_after.isdigit() else None
+        if retry_after and retry_after.isdigit():
+            return float(retry_after)  # secondary/abuse rate limit: honor and retry
+        # A 403 with quota remaining and no Retry-After is an authorization or
+        # egress-policy denial, not a transient failure. Retrying it wastes time
+        # and (per the egress-proxy contract) is exactly what not to do.
+        raise IngestError(
+            f"forbidden (403) for {url}: the authenticated identity is not authorized "
+            "for this resource, or an egress policy blocks it — not retrying"
+        ) from exc
     if 500 <= exc.code < 600:
         return None  # transient server error -> exponential backoff
     raise IngestError(f"GitHub API error {exc.code} for {url}") from exc

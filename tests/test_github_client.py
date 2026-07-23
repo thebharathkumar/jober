@@ -46,8 +46,15 @@ def test_server_error_signals_retry():
 
 
 def test_throttle_with_retry_after_returns_delay():
-    hdrs = {"Retry-After": "7"}  # 403 but not rate-limit-exhausted
+    hdrs = {"Retry-After": "7"}  # secondary rate limit: honor the delay and retry
     assert _handle_http_error(_http_error(403, hdrs), "url") == 7.0
+
+
+def test_forbidden_without_ratelimit_is_terminal():
+    # An authorization / egress-policy 403 (quota remaining, no Retry-After) must
+    # NOT be retried — it is a terminal error, per the egress-proxy contract.
+    with pytest.raises(IngestError):
+        _handle_http_error(_http_error(403), "url")
 
 
 def test_other_4xx_raises_ingest_error():
