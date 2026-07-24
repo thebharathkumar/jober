@@ -19,6 +19,17 @@ claims to is lying. This is a *knowledge-continuity system*: it makes captured
 knowledge retrievable, faithfully reproduced, and — the part almost every RAG
 demo skips — **verified against ground truth.**
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/calibration-dark.svg">
+    <img alt="Reliability diagram: raw retrieval confidence is overconfident (below the diagonal); after isotonic calibration it hugs the diagonal. ECE 0.16 to 0.07; accuracy when it answers 60% to 87%." src="docs/calibration-light.svg" width="760">
+  </picture>
+</p>
+
+<p align="center"><em>The system measures its own confidence and fixes it: raw
+retrieval confidence is overconfident, so calibration + abstention makes it
+trustworthy. Reproduce with <code>python scripts/plot_calibration.py</code>.</em></p>
+
 ---
 
 ## The one number that matters

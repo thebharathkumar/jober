@@ -7,6 +7,10 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- **Calibration reliability diagram** (`scripts/plot_calibration.py`): renders the
+  benchmark's raw-vs-calibrated reliability curve as theme-paired, zero-dependency
+  SVG (light + dark), embedded as the README hero. Colours follow the validated
+  data-viz palette.
 - **Synthetic benchmark** (`bus_factor/benchmark.py`, `scripts/synthetic_benchmark.py`):
   a deterministic ~100-doc corpus mixing recoverable clusters with unrecoverable
   singletons, so calibration is non-degenerate. Shows leave-one-out selective
