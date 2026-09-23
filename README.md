@@ -2,6 +2,13 @@
 
 **Organizational memory that survives turnover.**
 
+<!-- brag:start -->
+<p align="center">
+  <a href="https://github.com/thebharathkumar/jober/blob/HEAD/docs/brag/jober.mp4"><img src="https://raw.githubusercontent.com/thebharathkumar/jober/HEAD/docs/brag/jober.gif" alt="jober: 15-second technical brief" width="100%"></a>
+</p>
+<p align="center"><sub>15-second technical brief. <a href="https://github.com/thebharathkumar/jober/blob/HEAD/docs/brag/jober.mp4">Full MP4 with sound</a> &middot; more at <a href="https://thebharath.co">thebharath.co</a></sub></p>
+<!-- brag:end -->
+
 When an experienced person leaves a team, the company loses years of judgment
 that was never written down: why a system was built the way it was, which
 tradeoffs were considered and rejected, how to actually get things done. Bus
